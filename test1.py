@@ -58,6 +58,35 @@ if st.button("🎮 대결 시작!"):
 st.markdown("## 📊 전적 요약")
 wins = st.session_state.wins
 losses = st.session_state.losses
-draws = st.sessio
+draws = st.session_state.draws
+total = st.session_state.total_games
+
+if total > 0:
+    win_rate = (wins / total) * 100
+else:
+    win_rate = 0.0
+
+st.write(f"✅ 이긴 횟수: {wins}")
+st.write(f"❌ 진 횟수: {losses}")
+st.write(f"🔁 비긴 횟수: {draws}")
+st.write(f"🎮 총 경기 수: {total}")
+st.write(f"🏆 승률: **{win_rate:.2f}%**")
+
+# -------------------------------
+# 초기화 버튼
+# -------------------------------
+if st.button("🔄 기록 초기화"):
+    st.session_state.wins = 0
+    st.session_state.losses = 0
+    st.session_state.draws = 0
+    st.session_state.total_games = 0
+    st.success("기록이 초기화되었습니다!")
+
+# -------------------------------
+# 푸터
+# -------------------------------
+st.markdown("---")
+st.markdown("Made with ❤️ using Streamlit")
+
 
 
