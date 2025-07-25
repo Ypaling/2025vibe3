@@ -9,14 +9,17 @@ uploaded_file = st.file_uploader("📂 엑셀 또는 CSV 파일을 업로드하�
 
 if uploaded_file is not None:
     try:
-        # 파일 확장자 감지
         file_name = uploaded_file.name
         _, ext = os.path.splitext(file_name)
 
+        # 파일 읽기
         if ext.lower() in [".xlsx", ".xls"]:
             df = pd.read_excel(uploaded_file)
         elif ext.lower() == ".csv":
-            df = pd.read_csv(uploaded_file)
+            try:
+                df = pd.read_csv(uploaded_file, encoding="utf-8")
+            except UnicodeDecodeError:
+                df = pd.read_csv(uploaded_file, encoding="cp949")
         else:
             st.error("지원하지 않는 파일 형식입니다.")
             st.stop()
@@ -24,6 +27,7 @@ if uploaded_file is not None:
         st.subheader("📄 원본 데이터 미리보기")
         st.dataframe(df.head())
 
+        # '남', '여' 열 처리
         if '남' in df.columns and '여' in df.columns:
             for col in ['남', '여']:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
