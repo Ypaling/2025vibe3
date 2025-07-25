@@ -1,5 +1,6 @@
 streamlit
 folium
+plotly
 streamlit-folium
 pandas
 gspread
