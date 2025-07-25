@@ -11,3 +11,8 @@ streamlit
 pandas
 plotly
 openpyxl
+streamlit
+torch
+torchvision
+matplotlib
+scikit-learn
