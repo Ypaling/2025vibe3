@@ -6,3 +6,7 @@ gspread
 oauth2client
 matplotlib   
 plotly
+streamlit
+pandas
+plotly
+openpyxl
