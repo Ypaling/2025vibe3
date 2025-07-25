@@ -3,16 +3,18 @@ import pandas as pd
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="서울시 인구 분석 디버그", page_icon="🛠️", layout="wide")
-st.title("🛠️ 서울시 연령별 인구 분석 (디버깅 모드)")
+st.title("🛠️ 서울시 연령별 인구 분석 (디버깅 + 자동 구조 인식)")
 
 uploaded_file = st.file_uploader("📁 CSV 파일 업로드 (합계 or 남녀구분)", type=["csv"])
 
+# 숫자형으로 안전하게 변환하는 함수
 def clean_and_convert(df, columns):
     for col in columns:
         df[col] = df[col].astype(str).str.replace(",", "").str.strip()
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
     return df
 
+# ✅ 표준 열 구조 분석
 def process_total_format(df):
     st.subheader("🔎 [디버그] 원본 CSV 상위 미리보기")
     st.write(df.head())
@@ -27,13 +29,11 @@ def process_total_format(df):
     st.subheader("🔧 [디버그] 숫자 변환 전 상위 데이터")
     st.write(seoul_df[age_cols].head())
 
-    # 숫자 변환 시도
     seoul_df = clean_and_convert(seoul_df, age_cols)
 
     st.subheader("✅ [디버그] 숫자로 변환된 합계 데이터 (0이면 실패)")
     st.write(seoul_df[age_cols].sum())
 
-    # 최종 변환
     total_counts = seoul_df[age_cols].sum().reset_index()
     total_counts.columns = ['연령', '전체']
     total_counts['연령'] = total_counts['연령'].str.extract(r'(\d+세|100세 이상)').squeeze()
@@ -41,6 +41,7 @@ def process_total_format(df):
 
     return total_counts
 
+# ✅ 전치된 구조 분석
 def process_transposed_format(df):
     st.info("🔄 전치된 구조로 판단됨 → 자동 전치 처리 중...")
     df_transposed = df.T.reset_index()
@@ -63,18 +64,20 @@ def process_transposed_format(df):
 
     return df_transposed[["연령", "전체"]]
 
+# ✅ 파일 업로드 처리
 if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file, encoding="cp949")
     except:
         df = pd.read_csv(uploaded_file, encoding="utf-8")
 
-    # 전치형 구조 여부 판단
-    if "2025년06월_계_0세" in df.iloc[:, 0].values:
+    # 🔍 자동 구조 감지
+    if "2025년06월_계_0세" in df.iloc[:, 0].values or df.columns[0].startswith("2025년"):
         total_df = process_transposed_format(df)
     else:
         total_df = process_total_format(df)
 
+    # ✅ 시각화 및 TOP 5
     if not total_df.empty and total_df["전체"].sum() > 0:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=total_df['연령'], y=total_df['전체'],
