@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 
-st.set_page_config(page_title="남녀 인구 데이터 처리기", page_icon="📊")
-st.title("👫 남녀 인구 데이터 업로드 및 합계 계산")
+st.set_page_config(page_title="데이터 자동 처리기", page_icon="📊")
+st.title("📤 데이터 업로드 및 자동 시각화")
 
 uploaded_file = st.file_uploader("📂 엑셀 또는 CSV 파일을 업로드하세요", type=["xlsx", "xls", "csv"])
 
@@ -21,31 +21,33 @@ if uploaded_file is not None:
             except UnicodeDecodeError:
                 df = pd.read_csv(uploaded_file, encoding="cp949")
         else:
-            st.error("지원하지 않는 파일 형식입니다.")
+            st.error("❌ 지원하지 않는 파일 형식입니다.")
             st.stop()
 
         st.subheader("📄 원본 데이터 미리보기")
         st.dataframe(df.head())
 
-        # '남', '여' 열 처리
-        if '남' in df.columns and '여' in df.columns:
-            for col in ['남', '여']:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+        # ✅ 숫자형 열만 추출해서 시각화
+        numeric_cols = df.select_dtypes(include='number').columns.tolist()
 
-            df['합계'] = df['남'] + df['여']
-
-            st.subheader("✅ 처리된 데이터")
-            st.dataframe(df)
-
-            csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 CSV 다운로드",
-                data=csv,
-                file_name='남녀_인구_합계.csv',
-                mime='text/csv',
-            )
+        if numeric_cols:
+            st.subheader("📊 숫자형 열 시각화 (Bar Chart)")
+            st.bar_chart(df[numeric_cols])
         else:
-            st.warning("⚠️ '남' 또는 '여' 열이 존재하지 않습니다. 열 이름을 확인해주세요.")
+            st.info("📌 시각화할 숫자형 열이 없습니다.")
+
+        # ✅ 전체 데이터 출력
+        st.subheader("✅ 전체 데이터")
+        st.dataframe(df)
+
+        # ✅ 다운로드
+        csv = df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 CSV 다운로드",
+            data=csv,
+            file_name='처리된_데이터.csv',
+            mime='text/csv',
+        )
 
     except Exception as e:
         st.error(f"❌ 오류 발생: {e}")
