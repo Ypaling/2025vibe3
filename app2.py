@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# CSV 파일 로딩 (cp949 인코딩)
+# CSV 파일 로딩
 @st.cache_data
 def load_data():
     df = pd.read_csv("202506_202506_연령별인구현황_월간.csv", encoding="cp949")
@@ -15,10 +15,17 @@ seoul_total = df[df['행정구역'].str.contains("서울특별시") & ~df['행�
 
 # 연령별 인구 컬럼만 추출
 age_columns = [col for col in df.columns if "세" in col]
-age_data = seoul_total[age_columns].str.replace(",", "").astype(int)
+raw_age_data = seoul_total[age_columns]
+
+# 문자열에서 쉼표 제거하고 정수형으로 변환
+age_data = raw_age_data.apply(lambda x: int(x.replace(",", "")))
 
 # 나이값 추출
-ages = [int(col.split("_")[2].replace("세", "").replace("이상", "")) if "이상" not in col else 100 for col in age_columns]
+ages = [
+    int(col.split("_")[2].replace("세", "").replace("이상", ""))
+    if "이상" not in col else 100
+    for col in age_columns
+]
 
 # 시각화용 데이터프레임 구성
 age_df = pd.DataFrame({
@@ -26,12 +33,12 @@ age_df = pd.DataFrame({
     "인구수": age_data.values
 })
 
-# Plotly Bar Chart
+# Plotly 막대그래프 생성
 fig = px.bar(age_df, x="연령", y="인구수",
              labels={"연령": "나이", "인구수": "인구 수"},
              title="서울특별시 연령별 인구 분포 (2025년 6월)",
              template="plotly_white")
 
-# Streamlit 출력
+# Streamlit 앱 구성
 st.title("서울특별시 연령별 인구 시각화")
 st.plotly_chart(fig)
