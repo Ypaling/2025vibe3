@@ -1,5 +1,6 @@
 streamlit
-streamlit-folium
 folium
+streamlit-folium
 pandas
-firebase-admin
+gspread
+oauth2client
