@@ -1,64 +1,42 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="서울시 연령별 인구 분석", layout="wide")
+st.set_page_config(page_title="남녀 인구 데이터 처리기", page_icon="📊")
+st.title("👫 남녀 인구 데이터 업로드 및 합계 계산")
 
-st.title("📊 서울특별시 연령별 인구 분석 (2025년 6월 기준)")
+uploaded_file = st.file_uploader("📂 엑셀 파일을 업로드하세요", type=["xlsx", "xls"])
 
-# 파일 업로드
-uploaded_file = st.file_uploader("📁 '연령별인구현황_월간_합계.csv' 파일을 업로드하세요", type="csv")
-
-if uploaded_file:
+if uploaded_file is not None:
     try:
-        # 데이터 로드
-        df = pd.read_csv(uploaded_file, encoding='cp949')
+        df = pd.read_excel(uploaded_file)
 
-        # 서울특별시 전체 행 추출
-        seoul_total = df[df["행정구역"].str.contains("서울특별시  ", regex=False)].iloc[0]
+        st.subheader("원본 데이터 미리보기")
+        st.dataframe(df.head())
 
-        # 연령별 컬럼만 추출
-        age_cols = [col for col in df.columns if "세" in col and "계" in col]
+        # '남'과 '여' 열이 있는지 확인
+        if '남' in df.columns and '여' in df.columns:
+            # 숫자로 변환 + NaN → 0 처리 + 정수로 변환
+            for col in ['남', '여']:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
 
-        # 인구 수 데이터 전처리
-        age_total_values = seoul_total[age_cols].str.replace(",", "").fillna("0").astype(int)
-        age_labels = [col.split("_")[-1] for col in age_cols]
+            # 합계 계산
+            df['합계'] = df['남'] + df['여']
 
-        # 시각화
-        st.subheader("🧒👵 연령별 인구 수")
+            st.subheader("✅ 처리된 데이터")
+            st.dataframe(df)
 
-        fig, ax = plt.subplots(figsize=(18, 6))
-        ax.bar(age_labels, age_total_values, color="skyblue")
-        ax.set_xlabel("연령", fontsize=12)
-        ax.set_ylabel("인구 수", fontsize=12)
-        ax.set_title("서울특별시 연령별 인구 수 (2025년 6월)", fontsize=16)
-        plt.xticks(rotation=90)
-        st.pyplot(fig)
-
-        # 추가 통계 분석
-        st.subheader("📌 인구 구성 분석")
-
-        young = sum(age_total_values[:15])          # 0~14세
-        working = sum(age_total_values[15:65])      # 15~64세
-        old = sum(age_total_values[65:])            # 65세 이상
-
-        st.markdown(f"""
-        - 🧒 **유소년 인구 (0-14세)**: {young:,}명  
-        - 🧑‍💼 **생산 가능 인구 (15-64세)**: {working:,}명  
-        - 👵 **고령 인구 (65세 이상)**: {old:,}명  
-        """)
-
-        # 파이 차트
-        fig2, ax2 = plt.subplots()
-        ax2.pie([young, working, old],
-                labels=["0-14세", "15-64세", "65세 이상"],
-                autopct='%1.1f%%',
-                startangle=140,
-                colors=["#FFD700", "#90EE90", "#FFB6C1"])
-        ax2.axis('equal')
-        st.pyplot(fig2)
+            # 다운로드 기능 (선택 사항)
+            csv = df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 CSV 다운로드",
+                data=csv,
+                file_name='남녀_인구_합계.csv',
+                mime='text/csv',
+            )
+        else:
+            st.warning("⚠️ '남' 또는 '여' 열이 존재하지 않습니다. 엑셀 열 이름을 확인해주세요.")
 
     except Exception as e:
-        st.error(f"❌ 오류 발생: {e}")
+        st.error(f"❌ 파일 처리 중 오류가 발생했습니다: {e}")
 else:
-    st.info("⬆️ 상단에서 CSV 파일을 업로드하세요.")
+    st.info("좌측에서 엑셀 파일을 업로드해주세요.")
