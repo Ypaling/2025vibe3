@@ -2,48 +2,37 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 파일 경로
-FILE_PATH = "서울시_시간대별_총_교통량.csv"
-
-# CSV 로딩
+# 데이터 불러오기
 @st.cache_data
 def load_data():
-    df = pd.read_csv(FILE_PATH)
+    df = pd.read_csv("서울시설공단_서울도시고속도로 노선별 시간대별 교통량_20250507.csv", encoding="cp949")
     return df
 
 df = load_data()
 
-# 페이지 제목
-st.title("🛣️ 서울시 시간대별 총 교통량 분석")
-st.markdown("서울시 도시고속도로의 시간대별 전체 교통량을 분석한 시각화입니다.")
+# 노선 목록 + "전체"
+roads = df["노선"].unique().tolist()
+roads.insert(0, "전체")
 
-# 기본 선 그래프
-fig = px.line(df,
-              x="시간대",
-              y="교통량",
-              title="시간대별 총 교통량 추이",
-              labels={"시간대": "시간 (시)", "교통량": "총 교통량 (대수)"},
-              markers=True)
+# 사용자 선택
+selected_road = st.selectbox("도로(노선)을 선택하세요:", roads)
 
-fig.update_layout(xaxis=dict(dtick=1),  # 시간 간격 1시간
-                  hovermode="x unified")
+# 선택된 도로 기준 데이터 필터링
+if selected_road == "전체":
+    filtered_df = df.groupby("시간대", as_index=False)["교통량"].sum()
+else:
+    filtered_df = df[df["노선"] == selected_road].groupby("시간대", as_index=False)["교통량"].sum()
 
-st.plotly_chart(fig, use_container_width=True)
+# Plotly 그래프
+fig = px.line(
+    filtered_df,
+    x="시간대",
+    y="교통량",
+    markers=True,
+    labels={"시간대": "시간대 (시)", "교통량": "교통량 (대수)"},
+    title=f"{selected_road} 시간대별 교통량"
+)
 
-# 바 차트로도 시각화
-st.subheader("📊 시간대별 총 교통량 (막대 차트)")
-bar_fig = px.bar(df,
-                 x="시간대",
-                 y="교통량",
-                 labels={"시간대": "시간 (시)", "교통량": "총 교통량 (대수)"},
-                 text_auto=True)
-
-bar_fig.update_layout(xaxis=dict(dtick=1),
-                      bargap=0.2)
-
-st.plotly_chart(bar_fig, use_container_width=True)
-
-# 피크 시간대 강조
-peak_hour = df.loc[df["교통량"].idxmax()]
-st.success(f"🚗 교통량이 가장 많은 시간대는 **{peak_hour['시간대']}시**로, 약 **{peak_hour['교통량']:,}대**입니다.")
-
+# Streamlit 출력
+st.title("서울 도시고속도로 시간대별 교통량 시각화")
+st.plotly_chart(fig)
