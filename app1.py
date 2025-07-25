@@ -4,7 +4,7 @@ import streamlit as st
 
 # 페이지 설정
 st.set_page_config(page_title="서울시 인구 분석", page_icon="📊", layout="wide")
-st.title("📊 서울시 연령별 인구 분석 결과 (자동 분석)")
+st.title("📊 서울시 연령별 인구 분석 결과 (2025년 6월 기준)")
 
 # 파일 경로
 file_total = "202506_202506_연령별인구현황_월간_합계.csv"
@@ -15,10 +15,7 @@ file_gender = "202506_202506_연령별인구현황_월간_남녀구분.csv"
 # ------------------------------
 @st.cache_data
 def load_total_data():
-    try:
-        df = pd.read_csv(file_total, encoding="cp949")
-    except:
-        df = pd.read_csv(file_total, encoding="utf-8")
+    df = pd.read_csv(file_total, encoding="cp949")
     df_t = df.set_index(df.columns[0]).T.reset_index()
     total_col = "서울특별시  (1100000000)"
     df_t["연령"] = df_t.iloc[:, 0]
@@ -29,24 +26,29 @@ def load_total_data():
 
 @st.cache_data
 def load_gender_data():
-    try:
-        df = pd.read_csv(file_gender, encoding="cp949")
-    except:
-        df = pd.read_csv(file_gender, encoding="utf-8")
+    df = pd.read_csv(file_gender, encoding="cp949")
     df = df[df["행정구역"].str.contains("서울특별시 ") & ~df["행정구역"].str.contains("\(")].copy()
+
     male_cols = [col for col in df.columns if "남_" in col and "세" in col]
     female_cols = [col for col in df.columns if "여_" in col and "세" in col]
+
+    # 문자열 -> 숫자 변환 (comma 제거 포함)
     for col in male_cols + female_cols:
-        df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", "").str.strip(), errors="coerce").fillna(0).astype(int)
-    male = df[male_cols].sum().reset_index()
-    female = df[female_cols].sum().reset_index()
-    male.columns = ['연령', '남자']
-    female.columns = ['연령', '여자']
-    male["연령"] = male["연령"].str.extract(r'(\d+세|100세 이상)')
-    female["연령"] = female["연령"].str.extract(r'(\d+세|100세 이상)')
-    df_age = pd.merge(male, female, on="연령")
-    df_age["전체"] = df_age["남자"] + df_age["여자"]
-    return df_age
+        df[col] = pd.to_numeric(df[col].astype(str).str.replace(",", "").str.strip(), errors="coerce").fillna(0)
+
+    male_sum = df[male_cols].sum().reset_index()
+    female_sum = df[female_cols].sum().reset_index()
+
+    male_sum.columns = ["연령", "남자"]
+    female_sum.columns = ["연령", "여자"]
+
+    male_sum["연령"] = male_sum["연령"].str.extract(r'(\d+세|100세 이상)')
+    female_sum["연령"] = female_sum["연령"].str.extract(r'(\d+세|100세 이상)')
+
+    df_gender = pd.merge(male_sum, female_sum, on="연령")
+    df_gender["전체"] = df_gender["남자"] + df_gender["여자"]
+
+    return df_gender
 
 # ------------------------------
 # 데이터 불러오기
