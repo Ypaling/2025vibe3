@@ -1,85 +1,82 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
-st.set_page_config(page_title="👫 연령별 남녀 인구 분석기", page_icon="👫")
-st.title("👫 서울시 연령대별 남녀 인구 분석기 (CSV 업로드 기반)")
+st.set_page_config(page_title="서울시 인구 분석", page_icon="📊", layout="wide")
+st.title("📊 서울시 연령별 인구 분석 (2025년 6월 기준)")
 
-uploaded_file = st.file_uploader("📂 CSV 파일 업로드 (남녀 구분)", type=["csv"])
+uploaded_file = st.file_uploader("📁 CSV 파일 업로드 (남녀구분 or 합계)", type=["csv"])
 
-if uploaded_file is not None:
+if uploaded_file:
     try:
-        # ================================
-        # 1. 인코딩 자동 감지
-        # ================================
-        try:
-            df = pd.read_csv(uploaded_file, encoding="utf-8")
-        except UnicodeDecodeError:
-            df = pd.read_csv(uploaded_file, encoding="cp949")
+        df = pd.read_csv(uploaded_file, encoding='cp949')
+    except UnicodeDecodeError:
+        df = pd.read_csv(uploaded_file, encoding='utf-8')
 
-        # ================================
-        # 2. 데이터 미리보기 & 구조 확인
-        # ================================
-        st.subheader("✅ 원본 데이터 미리보기")
-        st.write("열 이름:", df.columns.tolist())
-        st.write("총 행 수:", df.shape[0])
-        st.dataframe(df.head())
+    seoul_df = df[df["행정구역"].str.contains("서울특별시 ") & ~df["행정구역"].str.contains("\(")].copy()
 
-        # ================================
-        # 3. 연령별 남녀 열 자동 탐색
-        # ================================
-        male_cols = [col for col in df.columns if "남" in col and "세" in col]
-        female_cols = [col for col in df.columns if "여" in col and "세" in col]
+    # 열 이름 목록
+    colnames = list(seoul_df.columns)
 
-        if not male_cols or not female_cols:
-            st.error("❌ '남' 또는 '여' 열이 자동으로 인식되지 않았습니다.")
-            st.stop()
+    # 남녀구분 파일 여부 판별
+    is_gender = any("남_" in col for col in colnames) and any("여_" in col for col in colnames)
+    is_total = any("계_" in col for col in colnames)
 
-        # 서울특별시 기준 첫 행 사용 (또는 원하는 지역 선택 기능 추가 가능)
-        row = df.iloc[0]
+    if is_gender:
+        st.subheader("✅ 남녀구분 인구 데이터 분석")
 
-        # 연령 추출 (열 이름에서 '0세', '1세', ..., '100세 이상' 부분만)
-        ages = [col.split("_")[-1] for col in male_cols]
+        age_columns_male = [col for col in colnames if "남_" in col and "세" in col]
+        age_columns_female = [col for col in colnames if "여_" in col and "세" in col]
 
-        # 값 전처리: 쉼표 제거 + NaN → 0 → int 변환
-        male_counts = row[male_cols].fillna(0).astype(str).str.replace(",", "").astype(int)
-        female_counts = row[female_cols].fillna(0).astype(str).str.replace(",", "").astype(int)
+        seoul_df[age_columns_male] = seoul_df[age_columns_male].replace(',', '', regex=True).astype(int)
+        seoul_df[age_columns_female] = seoul_df[age_columns_female].replace(',', '', regex=True).astype(int)
 
-        # ================================
-        # 4. 데이터프레임 구성 및 출력
-        # ================================
-        age_df = pd.DataFrame({
-            "연령": ages,
-            "남자": male_counts.values,
-            "여자": female_counts.values
-        })
+        male_counts = seoul_df[age_columns_male].sum().reset_index()
+        female_counts = seoul_df[age_columns_female].sum().reset_index()
 
-        st.subheader("📊 연령대별 남녀 인구 데이터")
-        st.dataframe(age_df)
+        male_counts.columns = ['연령', '남자']
+        female_counts.columns = ['연령', '여자']
+        male_counts['연령'] = male_counts['연령'].str.extract(r'(\d+세)').squeeze()
+        female_counts['연령'] = female_counts['연령'].str.extract(r'(\d+세)').squeeze()
 
-        # ================================
-        # 5. Plotly 시각화
-        # ================================
-        melted = age_df.melt(id_vars="연령", var_name="성별", value_name="인구수")
+        age_df = pd.merge(male_counts, female_counts, on='연령')
+        age_df['남자'] = age_df['남자'].astype(int)
+        age_df['여자'] = age_df['여자'].astype(int)
 
-        fig = px.bar(
-            melted,
-            x="연령", y="인구수", color="성별", barmode="group",
-            title="서울특별시 연령대별 남녀 인구",
-            labels={"연령": "연령대", "인구수": "인구 수", "성별": "성별"}
-        )
-        fig.update_layout(xaxis_tickangle=-45)
+        # 시각화
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=age_df['연령'], y=age_df['남자'], mode='lines+markers', name='남자'))
+        fig.add_trace(go.Scatter(x=age_df['연령'], y=age_df['여자'], mode='lines+markers', name='여자'))
+        fig.update_layout(title='연령별 남녀 인구수', xaxis_title='연령', yaxis_title='인구수', hovermode='x unified')
         st.plotly_chart(fig, use_container_width=True)
 
-        # ================================
-        # 6. CSV 다운로드
-        # ================================
-        csv = age_df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("📥 분석 결과 CSV 다운로드", data=csv, file_name="연령대별_남녀_인구.csv", mime="text/csv")
+        # 상위 5 연령
+        age_df["전체"] = age_df["남자"] + age_df["여자"]
+        top5 = age_df.sort_values(by="전체", ascending=False).head(5)
+        st.subheader("👑 인구수가 많은 연령 TOP 5")
+        st.table(top5[['연령', '남자', '여자', '전체']].reset_index(drop=True))
 
-    except Exception as e:
-        st.error(f"❌ 오류 발생: {e}")
+    elif is_total:
+        st.subheader("✅ 전체 합계 인구 데이터 분석")
+
+        age_columns_total = [col for col in colnames if "계_" in col and "세" in col]
+
+        seoul_df[age_columns_total] = seoul_df[age_columns_total].replace(',', '', regex=True).astype(int)
+        total_counts = seoul_df[age_columns_total].sum().reset_index()
+        total_counts.columns = ['연령', '전체']
+        total_counts['연령'] = total_counts['연령'].str.extract(r'(\d+세)').squeeze()
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=total_counts['연령'], y=total_counts['전체'], mode='lines+markers', name='전체'))
+        fig.update_layout(title='연령별 전체 인구수', xaxis_title='연령', yaxis_title='인구수', hovermode='x unified')
+        st.plotly_chart(fig, use_container_width=True)
+
+        top5 = total_counts.sort_values(by="전체", ascending=False).head(5)
+        st.subheader("👑 인구수가 많은 연령 TOP 5")
+        st.table(top5.reset_index(drop=True))
+
+    else:
+        st.error("⚠️ 인식할 수 있는 '남녀구분' 또는 '합계' 포맷이 아닙니다.")
 
 else:
-    st.info("👆 왼쪽에서 CSV 파일을 업로드해주세요.")
-
+    st.info("CSV 파일을 업로드해주세요.")
