@@ -41,6 +41,7 @@ fig_single = px.line(
     template="plotly_white"
 )
 fig_single.update_traces(line=dict(color="red"))
+fig_single.update_layout(xaxis=dict(dtick=1))  # ⏱️ X축 간격을 1시간 단위로 고정
 st.plotly_chart(fig_single)
 
 # ---- [중간] 전체 vs 선택 도로 비교 ----
@@ -72,19 +73,18 @@ fig_compare.update_layout(
     title=f"⏱️ 시간대별 교통량 비교: 전체 vs {selected_road}",
     xaxis_title="시간대 (시)",
     yaxis_title="교통량 (대수)",
-    template="plotly_white"
+    template="plotly_white",
+    xaxis=dict(dtick=1)  # ⏱️ 여기에도 X축 눈금 간격 적용
 )
 st.plotly_chart(fig_compare)
 
-# ---- [하단] 도로별 교통량 비율 그래프 ----
-st.subheader("📈 도로별 전체 교통량 비율")
+# ---- [하단] 도로별 전체 교통량 비율 ----
+st.subheader("📈 도로별 전체 교통량 비율 (%)")
 
-# 도로별 전체 교통량 합계 및 비율 계산
 road_total = df.groupby("노선", as_index=False)["교통량"].sum()
 overall_total = road_total["교통량"].sum()
 road_total["비율(%)"] = (road_total["교통량"] / overall_total * 100).round(2)
 
-# Plotly 막대그래프
 fig_ratio = px.bar(
     road_total,
     x="노선",
@@ -96,5 +96,4 @@ fig_ratio = px.bar(
 )
 fig_ratio.update_traces(marker_color="green", textposition="outside")
 fig_ratio.update_layout(yaxis_range=[0, road_total["비율(%)"].max() * 1.2])
-
 st.plotly_chart(fig_ratio)
